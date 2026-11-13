@@ -1873,7 +1873,7 @@ static bool getSymbolNamesFromObject(SymbolicFile &Obj,
         SymbolRef SymRef(Sym);
         Expected<uint64_t> AddressOrErr = SymRef.getAddress();
         if (!AddressOrErr) {
-          consumeError(AddressOrErr.takeError());
+          error(AddressOrErr.takeError(), Obj.getFileName());
           break;
         }
         S.Address = *AddressOrErr;

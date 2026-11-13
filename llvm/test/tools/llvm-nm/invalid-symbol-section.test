@@ -1,0 +1,53 @@
+## Check that failures to read a symbol address are reported instead of silently
+## producing incomplete output and exiting successfully.
+
+# RUN: yaml2obj --docnum=1 %s -o %t.elf
+# RUN: not llvm-nm %t.elf 2>&1 | FileCheck %s --check-prefix=ELF -DFILE=%t.elf
+# RUN: not llvm-nm -j %t.elf 2>&1 | FileCheck %s --check-prefix=ELF -DFILE=%t.elf
+# ELF: error: [[FILE]]: invalid section index: 42
+
+# RUN: yaml2obj --docnum=2 %s -o %t.coff
+# RUN: not llvm-nm %t.coff 2>&1 | FileCheck %s --check-prefix=COFF -DFILE=%t.coff
+# RUN: not llvm-nm -j %t.coff 2>&1 | FileCheck %s --check-prefix=COFF -DFILE=%t.coff
+# COFF: error: [[FILE]]: section index out of bounds
+
+## An address lookup error in one input must not prevent processing later inputs.
+# RUN: yaml2obj --docnum=3 %s -o %t.valid
+# RUN: not llvm-nm %t.elf %t.valid > %t.out 2> %t.err
+# RUN: FileCheck %s --check-prefix=ELF -DFILE=%t.elf < %t.err
+# RUN: FileCheck %s --check-prefix=VALID < %t.out
+# VALID: 0000000000000000 A valid
+
+--- !ELF
+FileHeader:
+  Class: ELFCLASS64
+  Data: ELFDATA2LSB
+  Type: ET_REL
+  Machine: EM_X86_64
+Symbols:
+  - Name: broken
+    Index: 42
+    Binding: STB_GLOBAL
+
+--- !COFF
+header:
+  Machine: IMAGE_FILE_MACHINE_AMD64
+sections: []
+symbols:
+  - Name: broken
+    Value: 0
+    SectionNumber: 42
+    SimpleType: IMAGE_SYM_TYPE_NULL
+    ComplexType: IMAGE_SYM_DTYPE_NULL
+    StorageClass: IMAGE_SYM_CLASS_EXTERNAL
+
+--- !ELF
+FileHeader:
+  Class: ELFCLASS64
+  Data: ELFDATA2LSB
+  Type: ET_REL
+  Machine: EM_X86_64
+Symbols:
+  - Name: valid
+    Index: SHN_ABS
+    Binding: STB_GLOBAL
